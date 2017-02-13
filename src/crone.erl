@@ -1,36 +1,35 @@
 %%% BEGIN crone.erl %%%
 %%%
 %%% crone - Task Scheduler for Erlang/OTP
-%%% Copyright (c)2002 Cat's Eye Technologies.  All rights reserved.
+%%%
+%%% Copyright (c)2002-2012, Chris Pressey, Cat's Eye Technologies.
+%%% All rights reserved.
 %%%
 %%% Redistribution and use in source and binary forms, with or without
 %%% modification, are permitted provided that the following conditions
 %%% are met:
 %%%
-%%%   Redistributions of source code must retain the above copyright
-%%%   notice, this list of conditions and the following disclaimer.
+%%%  1. Redistributions of source code must retain the above copyright
+%%%     notices, this list of conditions and the following disclaimer.
+%%%  2. Redistributions in binary form must reproduce the above copyright
+%%%     notices, this list of conditions, and the following disclaimer in
+%%%     the documentation and/or other materials provided with the
+%%%     distribution.
+%%%  3. Neither the names of the copyright holders nor the names of their
+%%%     contributors may be used to endorse or promote products derived
+%%%     from this software without specific prior written permission.
 %%%
-%%%   Redistributions in binary form must reproduce the above copyright
-%%%   notice, this list of conditions and the following disclaimer in
-%%%   the documentation and/or other materials provided with the
-%%%   distribution.
-%%%
-%%%   Neither the name of Cat's Eye Technologies nor the names of its
-%%%   contributors may be used to endorse or promote products derived
-%%%   from this software without specific prior written permission.
-%%%
-%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
-%%% CONTRIBUTORS ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
-%%% INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-%%% MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-%%% DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE
-%%% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
-%%% OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-%%% PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA,
-%%% OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
-%%% ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-%%% OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
-%%% OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+%%% ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES INCLUDING, BUT NOT
+%%% LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+%%% FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE
+%%% COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+%%% INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+%%% BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+%%% LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+%%% CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+%%% LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+%%% ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 %%% POSSIBILITY OF SUCH DAMAGE.
 
 %% @doc Simple task scheduler for Erlang/OTP.  This application aims to
@@ -87,7 +86,7 @@
 %% @type  task()       = {when(), mfa()}
 %% @type  mfa()        = {module(), function(), args()}
 %% @type  when()       = {daily, period()}
-%%                     | {weekly, dow(), period()}
+%%                     | {weekly, dow(), period()} 
 %%                     | {monthly, dom(), period()}
 %% @type  dow()        = mon | tue | wed | thu | fri | sat | sun
 %% @type  dom()        = integer()
@@ -148,7 +147,9 @@ current_time() ->
 %% @doc Calculates the duration in seconds until the next time
 %% a task is to be run.
 
-until_next_time({When, _MFA}) ->
+until_next_time(Task) ->
+  CurrentTime = current_time(),
+  {When, MFA} = Task,
   case When of
     {daily, Period} ->
       until_next_daytime(Period);
@@ -157,26 +158,26 @@ until_next_time({When, _MFA}) ->
       Today = calendar:day_of_the_week(erlang:date()),
       case Today of
         OnDay ->
-	  until_next_daytime_or_days_from_now(Period, 7);
+    until_next_daytime_or_days_from_now(Period, 7);
         Today when Today < OnDay ->
-	  until_days_from_now(Period, OnDay - Today);
-	Today when Today > OnDay  ->
-	  until_days_from_now(Period, (OnDay+7) - Today)
+    until_days_from_now(Period, OnDay - Today);
+  Today when Today > OnDay  ->
+    until_days_from_now(Period, (OnDay+7) - Today)
       end;
     {monthly, DoM, Period} ->
       {ThisYear, ThisMonth, Today} = erlang:date(),
       {NextYear, NextMonth} = case ThisMonth of
         12 -> {ThisYear + 1, 1};
-	_  -> {ThisYear, ThisMonth + 1}
+  _  -> {ThisYear, ThisMonth + 1}
       end,
       D1 = calendar:date_to_gregorian_days(ThisYear, ThisMonth, Today),
       D2 = calendar:date_to_gregorian_days(NextYear, NextMonth, DoM),
       Days = D2 - D1,
       case Today of
         DoM ->
-	  until_next_daytime_or_days_from_now(Period, Days);
-	_ ->
-	  until_days_from_now(Period, Days)
+    until_next_daytime_or_days_from_now(Period, Days);
+  _ ->
+    until_days_from_now(Period, Days)
       end
   end.
 
@@ -217,7 +218,7 @@ until_next_daytime_or_days_from_now(Period, Days) ->
   case last_time(Period) of
     T when T < CurrentTime ->
       until_days_from_now(Period, Days-1);
-    _ ->
+    T ->
       until_next_daytime(Period)
   end.
 
@@ -240,9 +241,9 @@ next_time(Period, Time) ->
   R = lists:sort(resolve_period(Period)),
   lists:foldl(fun(X, A) ->
                 case X of
-		  T when T >= Time, T < A -> T;
-		  _ -> A
-		end
+      T when T >= Time, T < A -> T;
+      _ -> A
+    end
               end, 24*3600, R).
 
 %% @spec resolve_period(period()) -> [seconds()]
@@ -258,7 +259,7 @@ resolve_period({every, Duration, {between, TimeA, TimeB}}) ->
 resolve_period(Time) ->
   [resolve_time(Time)].
 
-resolve_period0(_Period, Time, EndTime, Acc) when Time >= EndTime -> Acc;
+resolve_period0(Period, Time, EndTime, Acc) when Time >= EndTime -> Acc;
 resolve_period0(Period, Time, EndTime, Acc) ->
   resolve_period0(Period, Time + Period, EndTime, [Time | Acc]).
 
@@ -294,7 +295,8 @@ resolve_dow(sun) -> 7.
 %% @spec run_task(task()) -> pid()
 %% @doc Spawns a process to accomplish the given task.
 
-run_task({_When, MFA}) ->
+run_task(Task) ->
+  {When, MFA} = Task,
   {M,F,A} = MFA,
   spawn(M,F,A).
 
