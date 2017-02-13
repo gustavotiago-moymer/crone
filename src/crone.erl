@@ -217,7 +217,7 @@ until_next_daytime_or_days_from_now(Period, Days) ->
   case last_time(Period) of
     T when T < CurrentTime ->
       until_days_from_now(Period, Days-1);
-    until_next_daytime(Period)
+    _ -> until_next_daytime(Period)
   end.
 
 %% @spec last_time(period()) -> seconds()
